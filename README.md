@@ -80,7 +80,34 @@ MCP Atlassian supports three authentication methods:
    - `ATLASSIAN_OAUTH_SCOPE`
 
 > [!IMPORTANT]
-> Include `offline_access` in scope for persistent auth (e.g., `read:jira-work write:jira-work offline_access`)
+> For the standard OAuth flow described above, include `offline_access` in your scope (e.g., `read:jira-work write:jira-work offline_access`). This allows the server to refresh the access token automatically.
+
+<details>
+<summary>Alternative: Using a Pre-existing OAuth Access Token (BYOT)</summary>
+
+If you are running mcp-atlassian part of a larger system that manages Atlassian OAuth 2.0 access tokens externally (e.g., through a central identity provider or another application), you can provide an access token directly to this MCP server. This method bypasses the interactive setup wizard and the server's internal token management (including refresh capabilities).
+
+**Requirements:**
+- A valid Atlassian OAuth 2.0 Access Token with the necessary scopes for the intended operations.
+- The corresponding `ATLASSIAN_OAUTH_CLOUD_ID` for your Atlassian instance.
+
+**Configuration:**
+To use this method, set the following environment variables (or use the corresponding command-line flags when starting the server):
+- `ATLASSIAN_OAUTH_CLOUD_ID`: Your Atlassian Cloud ID. (CLI: `--oauth-cloud-id`)
+- `ATLASSIAN_OAUTH_ACCESS_TOKEN`: Your pre-existing OAuth 2.0 access token. (CLI: `--oauth-access-token`)
+
+**Important Considerations for BYOT:**
+- **Token Lifecycle Management:** When using BYOT, the MCP server **does not** handle token refresh. The responsibility for obtaining, refreshing (before expiry), and revoking the access token lies entirely with you or the external system providing the token.
+- **Unused Variables:** The standard OAuth client variables (`ATLASSIAN_OAUTH_CLIENT_ID`, `ATLASSIAN_OAUTH_CLIENT_SECRET`, `ATLASSIAN_OAUTH_REDIRECT_URI`, `ATLASSIAN_OAUTH_SCOPE`) are **not** used and can be omitted when configuring for BYOT.
+- **No Setup Wizard:** The `--oauth-setup` wizard is not applicable and should not be used for this approach.
+- **No Token Cache Volume:** The Docker volume mount for token storage (e.g., `-v "${HOME}/.mcp-atlassian:/home/app/.mcp-atlassian"`) is also not necessary if you are exclusively using the BYOT method, as no tokens are stored or managed by this server.
+- **Scope:** The provided access token must already have the necessary permissions (scopes) for the Jira/Confluence operations you intend to perform.
+
+This option is useful in scenarios where OAuth credential management is centralized or handled by other infrastructure components.
+</details>
+
+> [!TIP]
+> **Multi-Cloud OAuth Support**: If you're building a multi-tenant application where users provide their own OAuth tokens, see the [Multi-Cloud OAuth Support](#multi-cloud-oauth-support) section for minimal configuration setup.
 
 ### 📦 2. Installation
 
@@ -117,6 +144,7 @@ There are two main approaches to configure the Docker container:
 > - `JIRA_PROJECTS_FILTER`: Filter by project keys (e.g., "PROJ,DEV,SUPPORT")
 > - `READ_ONLY_MODE`: Set to "true" to disable write operations
 > - `MCP_VERBOSE`: Set to "true" for more detailed logging
+> - `MCP_LOGGING_STDOUT`: Set to "true" to log to stdout instead of stderr
 > - `ENABLED_TOOLS`: Comma-separated list of tool names to enable (e.g., "confluence_search,jira_get_issue")
 >
 > See the [.env.example](https://github.com/sooperset/mcp-atlassian/blob/main/.env.example) file for all available options.
@@ -221,7 +249,11 @@ For Server/Data Center deployments, use direct variable passing:
 <summary>OAuth 2.0 Configuration (Cloud Only)</summary>
 <a name="oauth-20-configuration-example-cloud-only"></a>
 
-This example shows how to configure `mcp-atlassian` in your IDE (like Cursor or Claude Desktop) when using OAuth 2.0 for Atlassian Cloud. Ensure you have completed the [OAuth setup wizard](#c-oauth-20-authentication-cloud-only) first.
+These examples show how to configure `mcp-atlassian` in your IDE (like Cursor or Claude Desktop) when using OAuth 2.0 for Atlassian Cloud.
+
+**Example for Standard OAuth 2.0 Flow (using Setup Wizard):**
+
+This configuration is for when you use the server's built-in OAuth client and have completed the [OAuth setup wizard](#c-oauth-20-authentication-cloud---advanced).
 
 ```json
 {
@@ -240,7 +272,7 @@ This example shows how to configure `mcp-atlassian` in your IDE (like Cursor or 
         "-e", "ATLASSIAN_OAUTH_REDIRECT_URI",
         "-e", "ATLASSIAN_OAUTH_SCOPE",
         "-e", "ATLASSIAN_OAUTH_CLOUD_ID",
-        "ghcr.io/sooperset/mcp-atlassian:latest",
+        "ghcr.io/sooperset/mcp-atlassian:latest"
       ],
       "env": {
         "JIRA_URL": "https://your-company.atlassian.net",
@@ -257,9 +289,47 @@ This example shows how to configure `mcp-atlassian` in your IDE (like Cursor or 
 ```
 
 > [!NOTE]
-> - `ATLASSIAN_OAUTH_CLOUD_ID` is obtained from the `--oauth-setup` wizard output.
-> - Other `ATLASSIAN_OAUTH_*` variables are those you configured for your OAuth app in the Atlassian Developer Console (and used as input to the setup wizard).
-> - `JIRA_URL` and `CONFLUENCE_URL` for your Cloud instances are still required.
+> - For the Standard Flow:
+>   - `ATLASSIAN_OAUTH_CLOUD_ID` is obtained from the `--oauth-setup` wizard output or is known for your instance.
+>   - Other `ATLASSIAN_OAUTH_*` client variables are from your OAuth app in the Atlassian Developer Console.
+>   - `JIRA_URL` and `CONFLUENCE_URL` for your Cloud instances are always required.
+>   - The volume mount (`-v .../.mcp-atlassian:/home/app/.mcp-atlassian`) is crucial for persisting the OAuth tokens obtained by the wizard, enabling automatic refresh.
+
+**Example for Pre-existing Access Token (BYOT - Bring Your Own Token):**
+
+This configuration is for when you are providing your own externally managed OAuth 2.0 access token.
+
+```json
+{
+  "mcpServers": {
+    "mcp-atlassian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e", "JIRA_URL",
+        "-e", "CONFLUENCE_URL",
+        "-e", "ATLASSIAN_OAUTH_CLOUD_ID",
+        "-e", "ATLASSIAN_OAUTH_ACCESS_TOKEN",
+        "ghcr.io/sooperset/mcp-atlassian:latest"
+      ],
+      "env": {
+        "JIRA_URL": "https://your-company.atlassian.net",
+        "CONFLUENCE_URL": "https://your-company.atlassian.net/wiki",
+        "ATLASSIAN_OAUTH_CLOUD_ID": "YOUR_KNOWN_CLOUD_ID",
+        "ATLASSIAN_OAUTH_ACCESS_TOKEN": "YOUR_PRE_EXISTING_OAUTH_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+> [!NOTE]
+> - For the BYOT Method:
+>   - You primarily need `JIRA_URL`, `CONFLUENCE_URL`, `ATLASSIAN_OAUTH_CLOUD_ID`, and `ATLASSIAN_OAUTH_ACCESS_TOKEN`.
+>   - Standard OAuth client variables (`ATLASSIAN_OAUTH_CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`, `SCOPE`) are **not** used.
+>   - Token lifecycle (e.g., refreshing the token before it expires and restarting mcp-atlassian) is your responsibility, as the server will not refresh BYOT tokens.
 
 </details>
 
@@ -313,6 +383,65 @@ For enterprise environments with firewall restrictions, you can set custom User-
 - `CONFLUENCE_USER_AGENT`: Custom User-Agent for Confluence API requests
 
 Add these to your `.env` file or use `-e JIRA_USER_AGENT` / `-e CONFLUENCE_USER_AGENT` in Docker args.
+
+</details>
+
+<details>
+<summary>Multi-Cloud OAuth Support</summary>
+
+MCP Atlassian supports multi-cloud OAuth scenarios where each user connects to their own Atlassian cloud instance. This is useful for multi-tenant applications, chatbots, or services where users provide their own OAuth tokens.
+
+**Minimal OAuth Configuration:**
+
+1. Enable minimal OAuth mode (no client credentials required):
+   ```bash
+   docker run -e ATLASSIAN_OAUTH_ENABLE=true -p 9000:9000 \
+     ghcr.io/sooperset/mcp-atlassian:latest \
+     --transport streamable-http --port 9000
+   ```
+
+2. Users provide authentication via HTTP headers:
+   - `Authorization: Bearer <user_oauth_token>`
+   - `X-Atlassian-Cloud-Id: <user_cloud_id>`
+
+**Example Integration (Python):**
+```python
+import asyncio
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
+
+user_token = "user-specific-oauth-token"
+user_cloud_id = "user-specific-cloud-id"
+
+async def main():
+    # Connect to streamable HTTP server with custom headers
+    async with streamablehttp_client(
+        "http://localhost:9000/mcp",
+        headers={
+            "Authorization": f"Bearer {user_token}",
+            "X-Atlassian-Cloud-Id": user_cloud_id
+        }
+    ) as (read_stream, write_stream, _):
+        # Create a session using the client streams
+        async with ClientSession(read_stream, write_stream) as session:
+            # Initialize the connection
+            await session.initialize()
+
+            # Example: Get a Jira issue
+            result = await session.call_tool(
+                "jira_get_issue",
+                {"issue_key": "PROJ-123"}
+            )
+            print(result)
+
+asyncio.run(main())
+```
+
+**Configuration Notes:**
+- Each request can use a different cloud instance via the `X-Atlassian-Cloud-Id` header
+- User tokens are isolated per request - no cross-tenant data leakage
+- Falls back to global `ATLASSIAN_OAUTH_CLOUD_ID` if header not provided
+- Compatible with standard OAuth 2.0 bearer token authentication
 
 </details>
 
@@ -545,6 +674,7 @@ Here's a complete example of setting up multi-user authentication with streamabl
 > - The server should have its own fallback authentication configured (e.g., via environment variables for API token, PAT, or its own OAuth setup using --oauth-setup). This is used if a request doesn't include user-specific authentication.
 > - **OAuth**: Each user needs their own OAuth access token from your Atlassian OAuth app.
 > - **PAT**: Each user provides their own Personal Access Token.
+> - **Multi-Cloud**: For OAuth users, optionally include `X-Atlassian-Cloud-Id` header to specify which Atlassian cloud instance to use
 > - The server will use the user's token for API calls when provided, falling back to server auth if not
 > - User tokens should have appropriate scopes for their needed operations
 
@@ -572,35 +702,40 @@ Here's a complete example of setting up multi-user authentication with streamabl
 
 <details> <summary>View All Tools</summary>
 
-| Operation | Jira Tools                    | Confluence Tools               |
-|-----------|-------------------------------|--------------------------------|
-| **Read**  | `jira_search`                 | `confluence_search`            |
-|           | `jira_get_issue`              | `confluence_get_page`          |
-|           | `jira_get_project_issues`     | `confluence_get_page_children` |
-|           | `jira_get_worklog`            | `confluence_get_comments`      |
-|           | `jira_get_transitions`        | `confluence_get_labels`        |
-|           | `jira_search_fields`          |                                |
-|           | `jira_get_agile_boards`       |                                |
-|           | `jira_get_board_issues`       |                                |
-|           | `jira_get_sprints_from_board` |                                |
-|           | `jira_get_sprint_issues`      |                                |
-|           | `jira_get_issue_link_types`   |                                |
-|           | `jira_batch_get_changelogs`*  |                                |
-|           | `jira_get_user_profile`       |                                |
-|           | `jira_download_attachments`   |                                |
-|           | `jira_get_project_versions`   |                                |
-| **Write** | `jira_create_issue`           | `confluence_create_page`       |
-|           | `jira_update_issue`           | `confluence_update_page`       |
-|           | `jira_delete_issue`           | `confluence_delete_page`       |
-|           | `jira_batch_create_issues`    | `confluence_add_label`         |
-|           | `jira_add_comment`            | `confluence_add_comment`       |
-|           | `jira_transition_issue`       |                                |
-|           | `jira_add_worklog`            |                                |
-|           | `jira_link_to_epic`           |                                |
-|           | `jira_create_sprint`          |                                |
-|           | `jira_update_sprint`          |                                |
-|           | `jira_create_issue_link`      |                                |
-|           | `jira_remove_issue_link`      |                                |
+| Operation | Jira Tools                          | Confluence Tools               |
+|-----------|-------------------------------------|--------------------------------|
+| **Read**  | `jira_search`                       | `confluence_search`            |
+|           | `jira_get_issue`                    | `confluence_get_page`          |
+|           | `jira_get_all_projects`             | `confluence_get_page_children` |
+|           | `jira_get_project_issues`           | `confluence_get_comments`      |
+|           | `jira_get_worklog`                  | `confluence_get_labels`        |
+|           | `jira_get_transitions`              | `confluence_search_user`       |
+|           | `jira_search_fields`                |                                |
+|           | `jira_get_agile_boards`             |                                |
+|           | `jira_get_board_issues`             |                                |
+|           | `jira_get_sprints_from_board`       |                                |
+|           | `jira_get_sprint_issues`            |                                |
+|           | `jira_get_issue_link_types`         |                                |
+|           | `jira_batch_get_changelogs`*        |                                |
+|           | `jira_get_user_profile`             |                                |
+|           | `jira_download_attachments`         |                                |
+|           | `jira_get_project_versions`         |                                |
+| **Write** | `jira_create_issue`                 | `confluence_create_page`       |
+|           | `jira_update_issue`                 | `confluence_update_page`       |
+|           | `jira_delete_issue`                 | `confluence_delete_page`       |
+|           | `jira_batch_create_issues`          | `confluence_add_label`         |
+|           | `jira_add_comment`                  | `confluence_add_comment`       |
+|           | `jira_transition_issue`             |                                |
+|           | `jira_add_worklog`                  |                                |
+|           | `jira_link_to_epic`                 |                                |
+|           | `jira_create_sprint`                |                                |
+|           | `jira_update_sprint`                |                                |
+|           | `jira_create_issue_link`            |                                |
+|           | `jira_remove_issue_link`            |                                |
+|           | `jira_create_version`               |                                |
+|           | `jira_batch_create_versions`        |                                |
+
+</details>
 
 *Tool only available on Jira Cloud
 

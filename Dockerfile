@@ -49,4 +49,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Expose port 9000 for SSE transport
 EXPOSE 9000
 
+# For minimal OAuth setup without environment variables, use:
+# docker run -e ATLASSIAN_OAUTH_ENABLE=true -p 8000:8000 your-image
+# Then provide authentication via headers:
+# Authorization: Bearer <your_oauth_token>
+# X-Atlassian-Cloud-Id: <your_cloud_id>
+
 ENTRYPOINT ["mcp-atlassian"]
