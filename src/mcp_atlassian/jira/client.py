@@ -53,6 +53,12 @@ class JiraClient:
 
             # Create a session for OAuth
             session = Session()
+            
+            # Configure custom User-Agent header for OAuth session
+            if self.config.user_agent:
+                session.headers["User-Agent"] = self.config.user_agent
+                log_config_param(logger, "Jira", "USER_AGENT", self.config.user_agent)
+                logger.debug(f"Set custom User-Agent header for OAuth: {self.config.user_agent}")
 
             # Configure the session with OAuth authentication
             if not configure_oauth_session(session, self.config.oauth_config):
