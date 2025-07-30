@@ -1,0 +1,84 @@
+{
+  "dxt_version": "0.1",
+  "name": "mcp-atlassian-comup",
+  "display_name": "MCP Atlassian (ComAp Integration)",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for Atlassian products (Jira and Confluence) with ComAp enterprise integration",
+  "long_description": "A comprehensive MCP server for Atlassian Cloud and Server/Data Center deployments. Supports both Jira and Confluence with enterprise features including custom headers for firewall bypass, proxy support, and multiple authentication methods (API tokens, Personal Access Tokens, and OAuth 2.0).",
+  "author": {
+    "name": "Tomáš Hucek (ComAp fork)",
+    "email": "tomas.hucek@comap.cz"
+  },
+  "keywords": ["atlassian", "jira", "confluence", "mcp", "enterprise", "comap"],
+  "server": {
+    "type": "binary",
+    "entry_point": "ghcr.io/sooperset/mcp-atlassian:latest",
+    "mcp_config": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e", "JIRA_URL",
+        "-e", "JIRA_USERNAME",
+        "-e", "JIRA_API_TOKEN",
+        "-e", "CONFLUENCE_URL", 
+        "-e", "CONFLUENCE_USERNAME",
+        "-e", "CONFLUENCE_API_TOKEN",
+        "-e", "JIRA_CUSTOM_HEADERS",
+        "-e", "CONFLUENCE_CUSTOM_HEADERS",
+        "ghcr.io/sooperset/mcp-atlassian:latest"
+      ],
+      "env": {
+        "JIRA_URL": "${user_config.jira_url}",
+        "JIRA_USERNAME": "${user_config.jira_username}",
+        "JIRA_API_TOKEN": "${user_config.jira_api_token}",
+        "CONFLUENCE_URL": "${user_config.confluence_url}",
+        "CONFLUENCE_USERNAME": "${user_config.confluence_username}",
+        "CONFLUENCE_API_TOKEN": "${user_config.confluence_api_token}",
+        "JIRA_CUSTOM_HEADERS": "User-Agent=Comup Integrations",
+        "CONFLUENCE_CUSTOM_HEADERS": "User-Agent=Comup Integrations"
+      }
+    }
+  },
+  "user_config": {
+    "jira_url": {
+      "type": "string",
+      "title": "JIRA URL",
+      "description": "Your JIRA instance URL (e.g., https://your-company.atlassian.net)",
+      "required": true
+    },
+    "jira_username": {
+      "type": "string", 
+      "title": "JIRA Username",
+      "description": "Your JIRA username/email",
+      "required": true
+    },
+    "jira_api_token": {
+      "type": "string",
+      "title": "JIRA API Token",
+      "description": "Your JIRA API token or Personal Access Token",
+      "sensitive": true,
+      "required": true
+    },
+    "confluence_url": {
+      "type": "string",
+      "title": "Confluence URL", 
+      "description": "Your Confluence instance URL (e.g., https://your-company.atlassian.net/wiki)",
+      "required": true
+    },
+    "confluence_username": {
+      "type": "string",
+      "title": "Confluence Username",
+      "description": "Your Confluence username/email",
+      "required": true
+    },
+    "confluence_api_token": {
+      "type": "string",
+      "title": "Confluence API Token",
+      "description": "Your Confluence API token or Personal Access Token",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

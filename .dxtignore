@@ -1,0 +1,74 @@
+# Development files
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Git and version control
+.git/
+.gitignore
+.gitmodules
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test files (optional - remove this if you want tests included)
+tests/
+*.test.py
+test_*.py
+
+# Documentation development files (keeping README.md and LICENSE)
+docs/
+*.md.backup
+
+# Environment and config files
+.env*
+!.env.example
+*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Lock files (keeping uv.lock for dependencies)
+package-lock.json
+yarn.lock
+Pipfile.lock
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Other development tools
+.docker/
+.devcontainer/
+smithery.yaml
+scripts/
